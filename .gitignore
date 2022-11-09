@@ -49,7 +49,7 @@ data/clean
 data/original
 data/processed_v1
 data/processed_v2
-
+data/Zeggs_data
 .vscode
 .idea
 .ipynb_checkpoints
