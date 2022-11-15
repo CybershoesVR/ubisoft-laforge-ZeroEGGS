@@ -34,6 +34,9 @@ Install CUDA and PyTorch 1.12.x For CUDA 11.3, this would look like:
 
 ```sh
 conda install pytorch torchvision cudatoolkit=11.3 -c pytorch
+or:
+
+pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
 ```
 
 Install the remaining requirements with pip:

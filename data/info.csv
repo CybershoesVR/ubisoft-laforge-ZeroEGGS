@@ -1,4 +1,3 @@
-sep=,
 audio_filename,audio_start_time,audio_end_time,audio_duration,audio_clap_time,anim_fbx_file,anim_start_time,anim_end_time,anim_duration,anim_clap_time,style,capture_session,acting_start_time,acting_end_time,anim_bvh,validation
 001_Neutral_0.wav,09:28:00:01,09:30:26:12,00:02:26:11,,20210604_001_Neutral_0_02.fbx,09:28:03:35,09:30:18:50,00:02:15:15,09:28:10:22,Neutral,1,09:28:15:21,09:30:16:47,001_Neutral_0.bvh,FALSE
 002_Neutral_1.wav,09:37:24:01,09:39:54:14,00:02:30:13,,20210604_002_Neutral_1_01.fbx,09:37:28:11,09:39:35:10,00:02:24:59,09:37:34:56,Neutral,1,09:37:38:45,09:39:51:37,002_Neutral_1.bvh,FALSE
