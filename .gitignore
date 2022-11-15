@@ -56,3 +56,4 @@ data/Zeggs_data
 .ipynb_checkpoints
 *.bvh
 *.wav
+*.blend
