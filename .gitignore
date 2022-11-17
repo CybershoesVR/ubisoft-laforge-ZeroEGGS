@@ -57,3 +57,7 @@ data/Zeggs_data
 *.bvh
 *.wav
 *.blend
+*.cfa
+*.pek
+*.prproj
+
