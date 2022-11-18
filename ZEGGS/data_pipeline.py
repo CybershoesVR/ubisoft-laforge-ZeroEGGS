@@ -87,7 +87,7 @@ def preprocess_audio(audio_data, anim_fs, anim_length, params, feature_type):
 # ===============================================
 #                   Animation
 # ===============================================
-def preprocess_animation(anim_data, conf=dict(), animation_path=None, info_df=None, i=0):
+def preprocess_animation(anim_data, conf=dict(), animation_path=None, info_df=None, i=0, animation_file_just_for_plot_filename=None):
     nframes = len(anim_data["rotations"])
     njoints = len(anim_data["parents"])
     dt = anim_data["frametime"]
@@ -127,7 +127,7 @@ def preprocess_animation(anim_data, conf=dict(), animation_path=None, info_df=No
     gaze_pos = gaze_pos[np.newaxis].repeat(nframes, axis=0)
 
     # Visualize Gaze Pos
-    if conf.get("visualize_gaze", False):
+    if conf.get("visualize_gaze", False) and (("Agreement" in animation_file_just_for_plot_filename.__str__()) or ("Disagreement" in animation_file_just_for_plot_filename.__str__())):
         import matplotlib.pyplot as plt
 
         plt.scatter(gaze_pos_all[:, 0], gaze_pos_all[:, 2], s=0.1, marker=".")
@@ -247,11 +247,14 @@ def data_pipeline(conf):
     console.print("This may take a little bit of time ...")
     len_ratios = conf["len_ratios"]
     base_path = Path(conf["base_path"])
+    use_clean_data = conf["use_clean_data"]
     processed_data_path = base_path / conf["processed_data_path"]
     processed_data_path.mkdir(exist_ok=True)
     info_filename = base_path / "info.csv"
     animation_path = base_path / "original"
     audio_path = base_path / "original"
+    clean_animation_path = base_path / "clean"
+    clean_audio_path = base_path / "clean"
 
     with open(str(processed_data_path / "data_pipeline_conf.json"), "w") as f:
         json.dump(conf, f, indent=4)
@@ -284,9 +287,14 @@ def data_pipeline(conf):
     ranges_valid_labels = []
 
     for i in track(range(num_of_samples), description="Processing...", complete_style="magenta"):
-
-        animation_file = str(animation_path / info_df.iloc[i].anim_bvh)
-        audio_file = audio_path / info_df.iloc[i].audio_filename
+        if use_clean_data:
+            clean_animation_filename = info_df.iloc[i].anim_bvh.split(".")[0] + "_x_1_0.bvh"
+            animation_file = str(clean_animation_path / clean_animation_filename)
+            clean_audio_filename = info_df.iloc[i].audio_filename.split(".")[0] + "_x_1_0.wav" 
+            audio_file = clean_audio_path / clean_audio_filename
+        else:
+            animation_file = str(animation_path / info_df.iloc[i].anim_bvh)
+            audio_file = audio_path / info_df.iloc[i].audio_filename
 
         # Load Animation #
         original_anim_data = bvh.load(animation_file)
@@ -303,112 +311,117 @@ def data_pipeline(conf):
             logger=_logger,
         )
 
-        # Silence Audio #
-        speacker_timing_df = pd.read_csv(audio_file.with_suffix(".csv"))
+        if use_clean_data:
+            pass
+        else:
+            # Use Original Data (must cut out unwanted preroll and synchronyze)
+            # Silence Audio #
+            speacker_timing_df = pd.read_csv(audio_file.with_suffix(".csv"))
 
-        # Mark regions that don't need silencing
-        mask = np.zeros_like(original_audio_data)
-        for ind, row in speacker_timing_df.iterrows():
+            # Mark regions that don't need silencing
+            mask = np.zeros_like(original_audio_data)
+            for ind, row in speacker_timing_df.iterrows():
 
-            if "R" in row["#"]:
-                start_time = [int(num) for num in row["Start"].replace(".", ":").rsplit(":")]
-                end_time = [int(num) for num in row["End"].replace(".", ":").rsplit(":")]
+                if "R" in row["#"]:
+                    start_time = [int(num) for num in row["Start"].replace(".", ":").rsplit(":")]
+                    end_time = [int(num) for num in row["End"].replace(".", ":").rsplit(":")]
 
-                start_time = (
-                        start_time[0] * 60 * audio_desired_fs
-                        + start_time[1] * audio_desired_fs
-                        + int(start_time[2] * (audio_desired_fs / 1000))
-                )
+                    start_time = (
+                            start_time[0] * 60 * audio_desired_fs
+                            + start_time[1] * audio_desired_fs
+                            + int(start_time[2] * (audio_desired_fs / 1000))
+                    )
 
-                end_time = (
-                        end_time[0] * 60 * audio_desired_fs
-                        + end_time[1] * audio_desired_fs
-                        + int(end_time[2] * (audio_desired_fs / 1000))
-                )
+                    end_time = (
+                            end_time[0] * 60 * audio_desired_fs
+                            + end_time[1] * audio_desired_fs
+                            + int(end_time[2] * (audio_desired_fs / 1000))
+                    )
 
-                mask[start_time:end_time] = 1.0
+                    mask[start_time:end_time] = 1.0
 
-        # Silence unmarked regions
-        original_audio_data = original_audio_data * mask
+            # Silence unmarked regions
+            original_audio_data = original_audio_data * mask
 
-        # Sync & Trim #
-        # Get mark-ups
-        audio_start_time = info_df.iloc[i].audio_start_time
-        audio_start_time = [int(num) for num in audio_start_time.rsplit(":")]
-        anim_start_time = info_df.iloc[i].anim_start_time
-        anim_start_time = [int(num) for num in anim_start_time.rsplit(":")]
-        acting_start_time = info_df.iloc[i].acting_start_time
-        acting_start_time = [int(num) for num in acting_start_time.rsplit(":")]
-        acting_end_time = info_df.iloc[i].acting_end_time
-        acting_end_time = [int(num) for num in acting_end_time.rsplit(":")]
+            # Sync & Trim #
+            # Get mark-ups
+            audio_start_time = info_df.iloc[i].audio_start_time
+            audio_start_time = [int(num) for num in audio_start_time.rsplit(":")]
+            anim_start_time = info_df.iloc[i].anim_start_time
+            anim_start_time = [int(num) for num in anim_start_time.rsplit(":")]
+            acting_start_time = info_df.iloc[i].acting_start_time
+            acting_start_time = [int(num) for num in acting_start_time.rsplit(":")]
+            acting_end_time = info_df.iloc[i].acting_end_time
+            acting_end_time = [int(num) for num in acting_end_time.rsplit(":")]
 
-        # Compute Timings (This is assuming that audio timing is given in 30fps)
-        audio_start_time_in_thirds = (
-                audio_start_time[0] * 216000
-                + audio_start_time[1] * 3600
-                + audio_start_time[2] * 60
-                + audio_start_time[3] * 2
-        )
-
-        anim_start_time_in_thirds = (
-                anim_start_time[0] * 216000
-                + anim_start_time[1] * 3600
-                + anim_start_time[2] * 60
-                + anim_start_time[3] * 1
-        )
-
-        acting_start_time_in_thirds = (
-                acting_start_time[0] * 216000
-                + acting_start_time[1] * 3600
-                + acting_start_time[2] * 60
-                + acting_start_time[3] * 1
-        )
-
-        acting_end_time_in_thirds = (
-                acting_end_time[0] * 216000
-                + acting_end_time[1] * 3600
-                + acting_end_time[2] * 60
-                + acting_end_time[3] * 1
-        )
-
-        acting_start_in_audio_ref = int(
-            np.round(
-                (acting_start_time_in_thirds - audio_start_time_in_thirds) * (audio_sr / 60)
+            # Compute Timings (This is assuming that audio timing is given in 30fps)
+            audio_start_time_in_thirds = (
+                    audio_start_time[0] * 216000
+                    + audio_start_time[1] * 3600
+                    + audio_start_time[2] * 60
+                    + audio_start_time[3] * 2
             )
-        )
 
-        acting_end_in_audio_ref = int(
-            np.round((acting_end_time_in_thirds - audio_start_time_in_thirds) * (audio_sr / 60))
-        )
-
-        acting_start_in_anim_ref = int(
-            np.round(
-                (acting_start_time_in_thirds - anim_start_time_in_thirds) * (anim_fps / 60)
+            anim_start_time_in_thirds = (
+                    anim_start_time[0] * 216000
+                    + anim_start_time[1] * 3600
+                    + anim_start_time[2] * 60
+                    + anim_start_time[3] * 1
             )
-        )
 
-        acting_end_in_anim_ref = int(
-            np.round((acting_end_time_in_thirds - anim_start_time_in_thirds) * (anim_fps / 60))
-        )
+            acting_start_time_in_thirds = (
+                    acting_start_time[0] * 216000
+                    + acting_start_time[1] * 3600
+                    + acting_start_time[2] * 60
+                    + acting_start_time[3] * 1
+            )
 
-        if (
-                acting_start_in_audio_ref < 0
-                or acting_start_in_anim_ref < 0
-                or acting_end_in_audio_ref < 0
-                or acting_end_in_anim_ref < 0
-        ):
-            raise ValueError("The timings are incorrect!")
+            acting_end_time_in_thirds = (
+                    acting_end_time[0] * 216000
+                    + acting_end_time[1] * 3600
+                    + acting_end_time[2] * 60
+                    + acting_end_time[3] * 1
+            )
 
-        # Trim to equal length
-        original_audio_data = original_audio_data[acting_start_in_audio_ref:acting_end_in_audio_ref]
+            acting_start_in_audio_ref = int(
+                np.round(
+                    (acting_start_time_in_thirds - audio_start_time_in_thirds) * (audio_sr / 60)
+                )
+            )
 
-        original_anim_data["rotations"] = original_anim_data["rotations"][
-                                          acting_start_in_anim_ref:acting_end_in_anim_ref
-                                          ]
+            acting_end_in_audio_ref = int(
+                np.round((acting_end_time_in_thirds - audio_start_time_in_thirds) * (audio_sr / 60))
+            )
 
-        original_anim_data["positions"] = original_anim_data["positions"][
-                                          acting_start_in_anim_ref:acting_end_in_anim_ref
-                                          ]
+            acting_start_in_anim_ref = int(
+                np.round(
+                    (acting_start_time_in_thirds - anim_start_time_in_thirds) * (anim_fps / 60)
+                )
+            )
+
+            acting_end_in_anim_ref = int(
+                np.round((acting_end_time_in_thirds - anim_start_time_in_thirds) * (anim_fps / 60))
+            )
+
+            if (
+                    acting_start_in_audio_ref < 0
+                    or acting_start_in_anim_ref < 0
+                    or acting_end_in_audio_ref < 0
+                    or acting_end_in_anim_ref < 0
+            ):
+                raise ValueError("The timings are incorrect!")
+
+            # Trim to equal length
+            original_audio_data = original_audio_data[acting_start_in_audio_ref:acting_end_in_audio_ref]
+
+            original_anim_data["rotations"] = original_anim_data["rotations"][
+                                            acting_start_in_anim_ref:acting_end_in_anim_ref
+                                            ]
+
+            original_anim_data["positions"] = original_anim_data["positions"][
+                                            acting_start_in_anim_ref:acting_end_in_anim_ref
+                                            ]
+        # End: Use Original Data (must cut out unwanted preroll and synchronyze)
         for len_ratio in len_ratios:
             anim_data = original_anim_data.copy()
             audio_data = original_audio_data.copy()
@@ -473,10 +486,10 @@ def data_pipeline(conf):
             assert len(audio_features) == len(anim_data["rotations"])
             assert not np.any(np.isnan(audio_features))
 
-            if conf["visualize_spectrogram"]:
+            if conf["visualize_spectrogram"] and (("Agreement" in audio_file.__str__()) or ("Disagreement" in audio_file.__str__())):
                 import matplotlib.pyplot as plt
-
-                plt.imshow(audio_features.T, interpolation="nearest")
+                plt.imshow(audio_features.T[0:79,4000:5000], interpolation="nearest")
+                plt.title(audio_file)
                 plt.show()
 
             # Extracting Animation Features
@@ -499,7 +512,7 @@ def data_pipeline(conf):
                 cvrt,
                 gaze_pos,
                 gaze_dir,
-            ) = preprocess_animation(anim_data, conf, animation_path, info_df, i)
+            ) = preprocess_animation(anim_data, conf, animation_path, info_df, i, animation_file)
 
             # Appending Data
             X_audio_features.append(audio_features)
@@ -737,7 +750,7 @@ def data_pipeline(conf):
 
 
 if __name__ == "__main__":
-    config_file = "../configs/data_pipeline_conf_v1.json"
+    config_file = "./configs/data_pipeline_conf_my1.json"
     with open(config_file, "r") as f:
         conf = json.load(f)
 

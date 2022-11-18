@@ -34,7 +34,7 @@
     "eps": 1e-05,
     "resume": false,
     "use_gpu": true,
-    "thread_count": 1,
+    "thread_count": 4,
     "seed": 1234,
     "use_tensorboard": true,
     "style_encoding_type": "example",

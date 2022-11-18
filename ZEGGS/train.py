@@ -731,7 +731,7 @@ def train(
 if __name__ == "__main__":
 
     # For debugging
-    options = "../configs/configs_v1.json"
+    options = "./configs/configs_my2.json"
     with open(options, "r") as f:
         options = json.load(f)
 
@@ -767,7 +767,7 @@ if __name__ == "__main__":
     with open(output_dir / 'options.json', 'w') as fp:
         json.dump(options, fp, indent=4)
 
-    save_useful_info(output_dir)
+ #   save_useful_info(output_dir)
 
     train(
         models_dir=models_dir,
