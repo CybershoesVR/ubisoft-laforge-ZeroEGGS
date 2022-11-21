@@ -745,7 +745,8 @@ if __name__ == "__main__":
 
     # Output directory
     if paths["output_dir"] is None:
-        output_dir = (base_path / "outputs") / datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        #output_dir = (base_path / "outputs") / datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+        output_dir = (base_path / "outputs") / options["name"]
         output_dir.mkdir(exist_ok=True, parents=True)
         paths["output_dir"] = str(output_dir)
     else:
@@ -767,7 +768,7 @@ if __name__ == "__main__":
     with open(output_dir / 'options.json', 'w') as fp:
         json.dump(options, fp, indent=4)
 
- #   save_useful_info(output_dir)
+    #save_useful_info(output_dir) #copies complete directory in sub: data explosion
 
     train(
         models_dir=models_dir,
